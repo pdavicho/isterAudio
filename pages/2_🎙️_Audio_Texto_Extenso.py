@@ -355,6 +355,20 @@ def format_srt_segment_html(segment: SRTSegment, keywords: List[str]) -> str:
         </div>
         """
 
+def create_safe_key(filename: str, suffix: str = "") -> str:
+    """Create a safe key for Streamlit widgets"""
+    import hashlib
+    
+    # Limpiar el nombre del archivo de caracteres especiales
+    safe_name = re.sub(r'[^a-zA-Z0-9_]', '_', filename)
+    safe_name = safe_name[:30]  # Limitar longitud
+    
+    # Crear hash más corto y seguro
+    hash_object = hashlib.md5(filename.encode())
+    short_hash = hash_object.hexdigest()[:8]
+    
+    return f"{safe_name}_{short_hash}_{suffix}" if suffix else f"{safe_name}_{short_hash}"
+
 def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filename: str):
     """Display SRT file with enhanced formatting and keyword highlighting"""
     try:
@@ -395,14 +409,26 @@ def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filen
         with col3:
             st.metric("Porcentaje", f"{(keyword_segments/total_segments*100):.1f}%" if total_segments > 0 else "0%")
         
-        # Display options con key única por archivo
-        unique_key = f"display_filter_{filename}_{hash(srt_file_path)}"
-        display_option = st.radio(
-            "Mostrar:",
-            ["Solo segmentos con palabras clave", "Todos los segmentos", "Solo segmentos sin palabras clave"],
-            horizontal=True,
-            key=unique_key
+        # Usar un enfoque más seguro para el filtrado
+        safe_key = create_safe_key(filename, "filter")
+        
+        # Inicializar en session state si no existe
+        if safe_key not in st.session_state:
+            st.session_state[safe_key] = "Solo segmentos con palabras clave" if keyword_segments > 0 else "Todos los segmentos"
+        
+        # Display options con mejor manejo de estado
+        filter_options = ["Solo segmentos con palabras clave", "Todos los segmentos", "Solo segmentos sin palabras clave"]
+        
+        # Usar selectbox en lugar de radio para evitar conflictos
+        display_option = st.selectbox(
+            "Filtrar segmentos:",
+            filter_options,
+            index=filter_options.index(st.session_state[safe_key]),
+            key=f"{safe_key}_select"
         )
+        
+        # Actualizar session state
+        st.session_state[safe_key] = display_option
         
         # Select segments to display
         if display_option == "Solo segmentos con palabras clave":
@@ -420,24 +446,31 @@ def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filen
         st.markdown("#### 📋 Transcripción con marcas de tiempo")
         
         # Limitar número de segmentos mostrados para evitar problemas de rendimiento
-        max_segments = 50
+        max_segments = 30  # Reducir para mejor rendimiento
         if len(segments_to_display) > max_segments:
             st.warning(f"Mostrando los primeros {max_segments} segmentos de {len(segments_to_display)} total.")
             segments_to_display = segments_to_display[:max_segments]
         
-        # Display segments one by one para mejor manejo de errores
-        for segment in segments_to_display:
-            try:
-                html_content = format_srt_segment_html(segment, keywords)
-                st.markdown(html_content, unsafe_allow_html=True)
-            except Exception as e:
-                # Si hay error con un segmento específico, mostrar versión simple
-                st.write(f"**{segment.index}** | {segment.start_time} → {segment.end_time}")
-                st.write(segment.text)
-                st.write("---")
+        # Mostrar segmentos usando container para mejor rendimiento
+        segments_container = st.container()
+        with segments_container:
+            for i, segment in enumerate(segments_to_display):
+                try:
+                    html_content = format_srt_segment_html(segment, keywords)
+                    st.markdown(html_content, unsafe_allow_html=True)
+                except Exception as e:
+                    # Si hay error con un segmento específico, mostrar versión simple
+                    st.write(f"**{segment.index}** | {segment.start_time} → {segment.end_time}")
+                    st.write(segment.text)
+                    st.divider()
+                
+                # Evitar sobrecarga procesando en lotes
+                if i > 0 and i % 10 == 0:
+                    time.sleep(0.01)  # Pequeña pausa para evitar bloqueo
                 
     except Exception as e:
         st.error(f"Error procesando archivo SRT para {filename}: {e}")
+        st.info("Intenta recargar la página o procesar menos archivos a la vez.")
 
 def highlight_keywords_in_text(text: str, keywords: List[str]) -> Tuple[str, List[str]]:
     """Highlight keywords in text and return found terms"""
