@@ -356,7 +356,7 @@ def format_srt_segment_html(segment: SRTSegment, keywords: List[str]) -> str:
         """
 
 def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filename: str):
-    """Display SRT file with enhanced formatting and keyword highlighting"""
+    """Display SRT file with enhanced formatting and keyword highlighting - Solo segmentos relevantes"""
     try:
         if not srt_file_path or not os.path.exists(srt_file_path):
             st.warning(f"Archivo SRT no encontrado para {filename}")
@@ -370,23 +370,20 @@ def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filen
         
         # Check which segments contain keywords
         segments_with_keywords = []
-        segments_without_keywords = []
         
         for segment in segments:
             try:
                 if check_segment_for_keywords(segment, keywords):
                     segment.contains_keywords = True
                     segments_with_keywords.append(segment)
-                else:
-                    segments_without_keywords.append(segment)
             except Exception as e:
-                # Si hay error procesando un segmento, agregarlo sin keywords
-                segments_without_keywords.append(segment)
+                continue
         
         # Display statistics
         total_segments = len(segments)
         keyword_segments = len(segments_with_keywords)
         
+        # Mostrar métricas
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("Total de segmentos", total_segments)
@@ -395,94 +392,54 @@ def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filen
         with col3:
             st.metric("Porcentaje", f"{(keyword_segments/total_segments*100):.1f}%" if total_segments > 0 else "0%")
         
-        # Usar botones simples en lugar de widgets problemáticos
-        st.markdown("**Selecciona qué mostrar:**")
-        
-        col_btn1, col_btn2, col_btn3 = st.columns(3)
-        
-        with col_btn1:
-            show_keywords = st.button(
-                f"🎯 Solo con keywords ({keyword_segments})", 
-                key=f"btn_keywords_{hash(filename)}",
-                use_container_width=True
-            )
-        
-        with col_btn2:
-            show_all = st.button(
-                f"📋 Todos ({total_segments})", 
-                key=f"btn_all_{hash(filename)}",
-                use_container_width=True
-            )
-        
-        with col_btn3:
-            show_without = st.button(
-                f"📄 Sin keywords ({total_segments - keyword_segments})", 
-                key=f"btn_without_{hash(filename)}",
-                use_container_width=True
-            )
-        
-        # Determinar qué mostrar
-        if show_keywords:
+        # Determinar qué mostrar - SOLO segmentos con keywords, o todos si no hay keywords
+        if keyword_segments > 0:
             segments_to_display = segments_with_keywords
-            section_title = "🎯 Segmentos con palabras clave"
-        elif show_without:
-            segments_to_display = segments_without_keywords
-            section_title = "📄 Segmentos sin palabras clave"
+            st.markdown("#### 🎯 Segmentos con palabras clave")
+            st.info(f"Mostrando solo los {keyword_segments} segmentos que contienen las palabras clave buscadas.")
         else:
-            # Por defecto mostrar con keywords si existen, sino todos
-            if keyword_segments > 0 and not show_all:
-                segments_to_display = segments_with_keywords
-                section_title = "🎯 Segmentos con palabras clave (por defecto)"
-            else:
-                segments_to_display = segments
-                section_title = "📋 Todos los segmentos"
+            # Si no hay keywords, mostrar solo los primeros segmentos como muestra
+            segments_to_display = segments[:10]  # Solo 10 como muestra
+            st.markdown("#### 📋 Muestra de segmentos (sin palabras clave)")
+            st.info(f"No se encontraron palabras clave. Mostrando los primeros 10 segmentos de {total_segments} total.")
         
         if not segments_to_display:
-            st.info("No hay segmentos para mostrar en esta categoría.")
+            st.info("No hay segmentos para mostrar.")
             return
         
-        # Display segments
-        st.markdown(f"#### {section_title}")
-        
-        # Limitar número de segmentos mostrados
-        max_segments = 25  # Reducir aún más para mejor estabilidad
+        # Limitar segmentos para mejor rendimiento
+        max_segments = 20
         if len(segments_to_display) > max_segments:
-            st.warning(f"Mostrando los primeros {max_segments} segmentos de {len(segments_to_display)} total.")
+            st.warning(f"Mostrando los primeros {max_segments} segmentos relevantes de {len(segments_to_display)} encontrados.")
             segments_to_display = segments_to_display[:max_segments]
         
-        # Mostrar segmentos de forma más simple y estable
-        for i, segment in enumerate(segments_to_display):
+        # Mostrar segmentos de forma simple y estable
+        for segment in segments_to_display:
             try:
-                # Usar un container simple para cada segmento
-                with st.container():
-                    # Color de fondo basado en si contiene keywords
-                    bg_color = "#fff3e0" if segment.contains_keywords else "#f9f9f9"
-                    border_color = "#d32f2f" if segment.contains_keywords else "#ccc"
-                    
-                    # Resaltar texto
-                    highlighted_text, _ = highlight_keywords_in_text(segment.text, keywords)
-                    
-                    # Mostrar con formato simple pero efectivo
-                    st.markdown(f"""
-                    <div style="padding: 10px; margin: 8px 0; border-left: 3px solid {border_color}; background-color: {bg_color};">
-                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
-                            <strong>#{segment.index}</strong> | {segment.start_time} → {segment.end_time}
-                        </div>
-                        <div style="font-size: 14px;">
-                            {highlighted_text}
-                        </div>
+                # Resaltar texto
+                highlighted_text, _ = highlight_keywords_in_text(segment.text, keywords)
+                
+                # Mostrar con formato simple
+                st.markdown(f"""
+                <div style="padding: 12px; margin: 10px 0; border-left: 4px solid #d32f2f; background-color: #fff3e0; border-radius: 4px;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 8px; font-weight: bold;">
+                        🎯 Segmento #{segment.index} | ⏱️ {segment.start_time} → {segment.end_time}
                     </div>
-                    """, unsafe_allow_html=True)
-                    
+                    <div style="font-size: 14px; line-height: 1.5;">
+                        {highlighted_text}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
             except Exception as e:
-                # Fallback super simple en caso de error
-                st.write(f"**#{segment.index}** | {segment.start_time} → {segment.end_time}")
+                # Fallback super simple
+                st.write(f"**🎯 #{segment.index}** | ⏱️ {segment.start_time} → {segment.end_time}")
                 st.write(segment.text)
                 st.divider()
                 
     except Exception as e:
-        st.error(f"Error procesando archivo SRT para {filename}")
-        st.info("El archivo se procesó correctamente, pero hay un problema mostrando los segmentos. Puedes descargar los resultados usando el botón de descarga.")
+        st.error(f"Error procesando marcas de tiempo para {filename}")
+        st.info("Los archivos se procesaron correctamente. Puedes usar los archivos SRT descargados.")
 
 def highlight_keywords_in_text(text: str, keywords: List[str]) -> Tuple[str, List[str]]:
     """Highlight keywords in text and return found terms"""
