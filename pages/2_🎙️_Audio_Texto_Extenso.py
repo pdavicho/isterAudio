@@ -396,7 +396,7 @@ def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filen
         if keyword_segments > 0:
             segments_to_display = segments_with_keywords
             st.markdown("#### 🎯 Segmentos con palabras clave")
-            st.info(f"Mostrando solo los {keyword_segments} segmentos que contienen las palabras clave buscadas.")
+            #st.info(f"Mostrando solo los {keyword_segments} segmentos que contienen las palabras clave buscadas.")
         else:
             # Si no hay keywords, mostrar solo los primeros segmentos como muestra
             segments_to_display = segments[:10]  # Solo 10 como muestra
@@ -507,22 +507,18 @@ def main():
     # Sidebar con información
     with st.sidebar:
         st.header("ℹ️ Información")
-        st.write("**Formatos soportados:**")
-        st.write("• WAV, MP3, WAVE")
-        st.write("• M4A, FLAC, AAC")
-        st.write("")
+        #st.write("**Formatos soportados:**")
+        #st.write("• WAV, MP3, WAVE")
+        #st.write("• M4A, FLAC, AAC")
+        #st.write("")
         st.write("**Características:**")
         st.write("• Procesamiento por lotes")
-        st.write("• **Ordenamiento automático**")
         st.write("• Búsqueda de palabras clave")
-        st.write("• **Marcas de tiempo precisas**")
-        st.write("• **Filtrado inteligente SRT**")
+        st.write("• Marcas de tiempo")
         st.write("• Reporte detallado")
         st.write("• Descarga de resultados")
         st.write("")
-        st.write("**🔢 Orden de procesamiento:**")
-        st.write("Los archivos se procesan automáticamente en orden numérico:")
-        st.code("audio_seg_1 → audio_seg_2 → audio_seg_10")
+        
         
         if st.button("🗑️ Limpiar archivos temporales"):
             cleanup_temp_directory()
@@ -721,18 +717,15 @@ def main():
             
             ### 📊 Resultados incluyen:
             - Transcripciones completas en TXT
-            - **Archivos SRT con marcas de tiempo precisas**
-            - **Visualización interactiva** con filtrado de segmentos
+            - Archivos SRT con marcas de tiempo
             - Archivos con palabras clave resaltadas
             - Reporte detallado con estadísticas
             - Análisis por archivo individual
             
             ### ⏱️ Funcionalidades de marcas de tiempo:
-            - **Navegación por segmentos** temporales
-            - **Filtrado inteligente** (solo con keywords, todos, sin keywords)
-            - **Estadísticas por archivo** (segmentos totales vs. relevantes)
-            - **Resaltado visual** de segmentos importantes
-            - **Descarga de archivos SRT** para usar en editores de video
+            - Navegación por segmentos temporales
+            - Estadísticas por archivo (segmentos totales vs. relevantes)
+            - Resaltado visual de segmentos importantes
             """)
 
 if __name__ == "__main__":
