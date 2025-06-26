@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import io
 
 st.set_page_config(
-    page_title="Audio Splitter Pro", 
+    page_title="Recortar Audios Extensos", 
     page_icon="✂️", 
     layout="wide",
     initial_sidebar_state="expanded"
@@ -233,8 +233,8 @@ def cleanup_temp_files():
     return True
 
 def main():
-    st.title("✂️ Audio Splitter Pro")
-    st.markdown("*Divide archivos de audio de forma inteligente y profesional*")
+    st.title("✂️ Recortar Audios Extensos")
+    st.markdown("*Divide archivos de audio extensos*")
     st.markdown("---")
     
     # Sidebar con configuraciones
@@ -297,14 +297,14 @@ def main():
         )
         
         # Configuración adicional
-        st.subheader("🎛️ Efectos")
-        fade_duration = st.slider(
-            "Fade in/out (ms):",
-            min_value=0,
-            max_value=1000,
-            value=100,
-            step=50
-        )
+        #st.subheader("🎛️ Efectos")
+        #fade_duration = st.slider(
+        #    "Fade in/out (ms):",
+        #    min_value=0,
+        #    max_value=1000,
+        #    value=100,
+        #    step=50
+        #)
         
         include_metadata = st.checkbox("Incluir archivo de información", value=True)
         
@@ -378,7 +378,7 @@ def main():
                         silence_detection=silence_detection,
                         min_silence_len=min_silence_len,
                         silence_thresh_adjustment=silence_thresh_adj,
-                        fade_duration=fade_duration,
+                        #fade_duration=fade_duration,
                         output_format=output_format,
                         output_quality=output_quality
                     )
@@ -484,10 +484,10 @@ def main():
             
             ### 📋 Consejos de uso:
             
-            - **Duración recomendada**: 2-5 minutos por segmento para podcasts
+            - **Duración recomendada**: 2-5 minutos por segmento
             - **Detección de silencio**: Actívala para cortes más naturales
             - **Calidad media**: Equilibrio perfecto entre tamaño y calidad
-            - **Fade effects**: Agregan profesionalismo a los cortes
+            
             
             ### 🔧 Configuraciones avanzadas:
             
