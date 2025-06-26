@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 
 st.set_page_config(
-    page_title='Herramientas de Audio IA - Instituto Rumiñahui',
+    page_title='ISTER - IA',
     page_icon='🎙️',
     layout='wide',
     initial_sidebar_state='expanded'
@@ -63,7 +63,7 @@ st.markdown("""
     }
     
     .stats-container {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);  
         color: white;
         padding: 2rem;
         border-radius: 15px;
@@ -102,10 +102,10 @@ if __name__ == "__main__":
     # Header principal simplificado
     st.markdown("""
     <div class="main-header">
-        <h1>🎙️ Herramientas de Inteligencia Artificial para Audio</h1>
+        <h1>🎙️ Speech To Text</h1>
         <h2>Instituto Universitario Rumiñahui</h2>
         <p style="font-size: 1.2rem; margin-top: 1rem; opacity: 0.9;">
-            Departamento de Investigación | Procesamiento Inteligente de Audio
+            | Departamento de Investigación | 
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -117,43 +117,43 @@ if __name__ == "__main__":
         st.markdown("""
         ## 🚀 Plataforma de Procesamiento de Audio
         
-        Esta suite de herramientas integra **tecnologías de inteligencia artificial** de última generación 
-        para el procesamiento, análisis y transcripción de contenido de audio. Diseñada para facilitar 
-        la investigación académica, análisis de contenido y procesamiento eficiente de grandes volúmenes de audio.
+        Esta plataforma integra **tecnologías de inteligencia artificial** de última generación 
+        para el procesamiento, análisis y transcripción de contenido de audio. Diseñada para el 
+        análisis de contenido y procesamiento de grandes volúmenes de audio.
         
         ### 🎯 Características principales:
         - **IA Avanzada**: Tecnología OpenAI Whisper de última generación
         - **Procesamiento por lotes**: Manejo eficiente de múltiples archivos
         - **Análisis inteligente**: Detección y resaltado de palabras clave
-        - **Interfaz intuitiva**: Diseño optimizado para uso académico y profesional
+        - **Interfaz intuitiva**: Diseño optimizado con Streamlit
         """)
     
     with col2:
         st.markdown("""
         <div class="stats-container">
-            <h3>📊 Estadísticas del Sistema</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0;">
-                <div>
-                    <h2 style="margin: 0; font-size: 2.5rem;">3</h2>
-                    <p style="margin: 0;">Herramientas</p>
-                </div>
-                <div>
-                    <h2 style="margin: 0; font-size: 2.5rem;">99%</h2>
-                    <p style="margin: 0;">Precisión</p>
-                </div>
-                <div style="grid-column: 1 / -1;">
-                    <h2 style="margin: 0; font-size: 2.5rem;">24/7</h2>
-                    <p style="margin: 0;">Disponibilidad</p>
-                </div>
+        <h3>📊 Estadísticas del Sistema</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0;">
+            <div>
+                <h2 style="margin: 0; font-size: 2.5rem;">3</h2>
+                <p style="margin: 0;">Herramientas</p>
+            </div>
+            <div>
+                <h2 style="margin: 0; font-size: 2.5rem;">AI</h2>
+                <p style="margin: 0;">Powered by Whisper</p>
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <h2 style="margin: 0; font-size: 2.5rem;">24/7</h2>
+                <p style="margin: 0;">Disponibilidad</p>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("---")
     
     # Herramientas disponibles con botones atractivos
     st.markdown("## 🛠️ Herramientas Disponibles")
-    st.markdown("*Selecciona la herramienta que necesitas para tu proyecto*")
+    #st.markdown("*Selecciona la herramienta que necesitas para tu proyecto*")
     st.markdown("")
     
     # Grid de herramientas
@@ -175,7 +175,7 @@ if __name__ == "__main__":
                     <li>Búsqueda de palabras clave</li>
                     <li>Marcas de tiempo precisas</li>
                     <li>Filtrado inteligente</li>
-                    <li>Múltiples formatos de salida</li>
+                    
                 </ul>
             </div>
         </div>
@@ -272,21 +272,21 @@ if __name__ == "__main__":
     with col3:
         st.markdown("""
         ### 🛡️ Calidad y Seguridad
-        - **Procesamiento local**: Datos seguros
+        - **Procesamiento Streamlit Cloud**: Datos seguros
         - **Validación robusta**: Control de errores
-        - **Estándares académicos**: Calidad garantizada
+        - **Estándares**: Calidad garantizada
         """)
     
     # Footer institucional
     st.markdown(f"""
     <div class="footer-info">
-        <h3>🏛️ Instituto Universitario Rumiñahui</h3>
+        <h2><span style="color: white;">🏛️ Instituto Universitario Rumiñahui</span></h2>
         <p><strong>Departamento de Investigación</strong> | Innovación y Desarrollo Tecnológico</p>
         <p>Comprometidos con la excelencia académica y el avance científico</p>
         <p style="opacity: 0.8; font-size: 0.9rem; margin-top: 1.5rem;">
             Última actualización: {datetime.now().strftime("%d/%m/%Y")} | 
             Versión: 2.0 | 
-            Desarrollado para la comunidad académica
+            Desarrollado por: PDMN
         </p>
     </div>
     """, unsafe_allow_html=True)
