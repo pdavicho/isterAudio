@@ -7,96 +7,667 @@ import whisper
 from whisper.utils import get_writer
 import time
 import warnings
+import re
+import shutil
+from typing import List, Dict, Tuple
+from dataclasses import dataclass
+import io
 
 warnings.filterwarnings('ignore')
+st.set_page_config(page_title='Speech To Text - Batch ZIP', page_icon=':studio_microphone:', layout="wide")
 
-st.set_page_config(page_title='Speech To Text', page_icon=':studio_microphone:')
+# Inicializar session state
+if 'processing_results' not in st.session_state:
+    st.session_state.processing_results = []
+if 'current_temp_dir' not in st.session_state:
+    st.session_state.current_temp_dir = None
 
-# Cargar modelo Whisper
-model = whisper.load_model('base')
+@dataclass
+class TranscriptionResult:
+    filename: str
+    filepath: str
+    transcription: str
+    duration: float
+    processing_time: float
+    found_keywords: List[str]
+    word_count: int
+    srt_path: str = None
 
-# Función para subir y extraer un archivo ZIP (actualizada)
-def upload_and_extract_zip():
-    zip_file = st.file_uploader('Sube un archivo ZIP con audios', type=['zip'])
-    if zip_file is not None:
-        # Crear un directorio temporal persistente
+@dataclass
+class SRTSegment:
+    index: int
+    start_time: str
+    end_time: str
+    text: str
+    contains_keywords: bool = False
+    
+@st.cache_resource
+def load_whisper_model():
+    """Load Whisper model with caching"""
+    try:
+        return whisper.load_model('base')
+    except Exception as e:
+        st.error(f"Error cargando modelo Whisper: {e}")
+        return None
+
+model = load_whisper_model()
+
+def get_audio_files_from_zip(zip_file) -> Tuple[List[str], str]:
+    """Extract and validate audio files from ZIP"""
+    try:
+        # Crear directorio temporal
         temp_dir = tempfile.mkdtemp()
         zip_path = os.path.join(temp_dir, "uploaded.zip")
+        
+        # Guardar archivo ZIP
         with open(zip_path, "wb") as f:
             f.write(zip_file.read())
-
-        # Extraer el ZIP
+        
+        # Extraer ZIP
         with zipfile.ZipFile(zip_path, 'r') as zf:
             zf.extractall(temp_dir)
+        
+        # Buscar archivos de audio (incluyendo en subdirectorios)
+        audio_extensions = ('.wav', '.mp3', '.wave', '.m4a', '.flac', '.aac')
+        audio_files = []
+        
+        for root, dirs, files in os.walk(temp_dir):
+            for file in files:
+                if file.lower().endswith(audio_extensions):
+                    full_path = os.path.join(root, file)
+                    audio_files.append(full_path)
+        
+        return audio_files, temp_dir
+        
+    except zipfile.BadZipFile:
+        st.error("El archivo no es un ZIP válido")
+        return [], None
+    except Exception as e:
+        st.error(f"Error procesando ZIP: {e}")
+        return [], None
+
+def validate_audio_file(filepath: str) -> bool:
+    """Validate if audio file can be processed"""
+    try:
+        # Verificar que el archivo existe y tiene tamaño > 0
+        if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+            return False
+        
+        # Verificar extensión
+        valid_extensions = ('.wav', '.mp3', '.wave', '.m4a', '.flac', '.aac')
+        return filepath.lower().endswith(valid_extensions)
+    except:
+        return False
+
+def get_transcribe_safe(audio_path: str, language: str = 'es') -> Dict:
+    """Safe transcription with error handling"""
+    try:
+        if model is None:
+            return {"error": "Modelo Whisper no disponible"}
+        
+        start_time = time.time()
+        result = model.transcribe(audio=audio_path, language=language, verbose=False)
+        processing_time = time.time() - start_time
+        
+        return {
+            "text": result.get("text", ""),
+            "segments": result.get("segments", []),
+            "processing_time": processing_time,
+            "error": None
+        }
+    except Exception as e:
+        return {"error": f"Error transcribiendo: {str(e)}"}
+
+def find_keywords_in_text(text: str, keywords: List[str]) -> List[str]:
+    """Find which keywords are present in text"""
+    found = []
+    text_lower = text.lower()
+    for keyword in keywords:
+        if keyword and keyword.lower().strip() in text_lower:
+            found.append(keyword)
+    return found
+
+def highlight_keywords(text: str, keywords: List[str]) -> str:
+    """Highlight keywords in text"""
+    highlighted = text
+    for keyword in keywords:
+        if keyword and keyword.strip():
+            pattern = re.compile(re.escape(keyword), re.IGNORECASE)
+            highlighted = pattern.sub(
+                lambda m: f'<mark style="background-color: #ffeb3b; color: #d32f2f; font-weight: bold;">{m.group()}</mark>',
+                highlighted
+            )
+    return highlighted
+
+def save_individual_files(result: Dict, filename: str, output_dir: str) -> Dict[str, str]:
+    """Save transcription files for individual audio"""
+    base_name = os.path.splitext(filename)[0]
+    saved_files = {}
+    
+    try:
+        # Guardar TXT
+        txt_path = os.path.join(output_dir, f"{base_name}.txt")
+        with open(txt_path, 'w', encoding='utf-8') as f:
+            f.write(result.get('text', ''))
+        saved_files['txt'] = txt_path
+        
+        # Guardar SRT si hay segmentos
+        if result.get('segments'):
+            srt_path = os.path.join(output_dir, f"{base_name}.srt")
+            srt_content = []
+            for i, segment in enumerate(result['segments'], 1):
+                start = format_timestamp(segment['start'])
+                end = format_timestamp(segment['end'])
+                text = segment['text'].strip()
+                srt_content.extend([str(i), f"{start} --> {end}", text, ""])
             
-        # Obtener archivos de audio extraídos
-        audio_files = [
-                os.path.join(temp_dir, f) for f in os.listdir(temp_dir)
-                if f.endswith(('.wav', '.mp3', '.wave'))
-            ]
-        return audio_files, temp_dir  # Retorna también el directorio
-    return None, None
+            with open(srt_path, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(srt_content))
+            saved_files['srt'] = srt_path
+        
+    except Exception as e:
+        st.warning(f"Error guardando archivos para {filename}: {e}")
+    
+    return saved_files
 
-# Función para transcribir audio
-def get_transcribe(audio, language='es'):
-    return model.transcribe(audio=audio, language=language, verbose=True)
+def format_timestamp(seconds):
+    """Convert seconds to SRT timestamp format"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
 
-# Función para guardar transcripciones
-def save_file(results, format='tsv'):
-    writer = get_writer(format, './')
-    writer(results, f'transcribe.{format}')
-    return f'transcribe.{format}'
+def create_summary_report(results: List[TranscriptionResult], keywords: List[str]) -> str:
+    """Create summary report of all transcriptions"""
+    total_files = len(results)
+    successful = len([r for r in results if r.transcription])
+    total_duration = sum(r.duration for r in results)
+    total_processing = sum(r.processing_time for r in results)
+    total_words = sum(r.word_count for r in results)
+    
+    files_with_keywords = len([r for r in results if r.found_keywords])
+    
+    report = f"""# 📊 Reporte de Transcripción Masiva
 
-# Función para seleccionar palabras clave
+## 📈 Estadísticas Generales
+- **Total de archivos procesados:** {total_files}
+- **Transcripciones exitosas:** {successful}
+- **Duración total de audio:** {total_duration:.1f} segundos ({total_duration/60:.1f} minutos)
+- **Tiempo total de procesamiento:** {total_processing:.1f} segundos
+- **Total de palabras transcritas:** {total_words:,}
+- **Archivos con palabras clave:** {files_with_keywords}
+
+## 🔍 Palabras Clave Buscadas
+{', '.join(keywords) if keywords else 'Ninguna'}
+
+## 📄 Detalle por Archivo
+"""
+    
+    for result in results:
+        status = "✅" if result.transcription else "❌"
+        keywords_found = ", ".join(result.found_keywords) if result.found_keywords else "Ninguna"
+        
+        report += f"""
+### {status} {result.filename}
+- **Duración:** {result.duration:.1f}s
+- **Tiempo de procesamiento:** {result.processing_time:.1f}s
+- **Palabras:** {result.word_count}
+- **Palabras clave encontradas:** {keywords_found}
+"""
+    
+    return report
+
 def opciones():
+    """Keyword selection interface"""
     keywords = st_tags(
-        label='Escoge las palabras que deseas analizar:',
-        text='Presiona Enter o añade más',
+        label='🏷️ Palabras clave para buscar en todas las transcripciones:',
+        text='Presiona Enter o añade más términos',
         value=['emergencia', 'robo', 'drogas'],
-        suggestions=['extorsión', 'robos', 'rescate'],
-        maxtags=5,
-        key="opciones"
-        )
+        suggestions=['extorsión', 'robos', 'rescate', 'auxilio', 'accidente', 'violencia', 'ayuda'],
+        maxtags=15,
+        key="batch_keywords"
+    )
     return keywords
 
-# Función para mostrar transcripción y resaltar términos
-def search_and_highlight_text(text, search_terms):
+def cleanup_temp_directory():
+    """Clean up temporary directory"""
+    if st.session_state.current_temp_dir and os.path.exists(st.session_state.current_temp_dir):
+        try:
+            shutil.rmtree(st.session_state.current_temp_dir)
+            st.session_state.current_temp_dir = None
+        except:
+            pass
+
+def parse_srt_file(srt_file_path: str) -> List[SRTSegment]:
+    """Parse SRT file into structured segments"""
+    segments = []
+    
+    try:
+        if not os.path.exists(srt_file_path):
+            return segments
+            
+        with open(srt_file_path, 'r', encoding='utf-8') as file:
+            content = file.read().strip()
+    except Exception as e:
+        return segments
+    
+    if not content:
+        return segments
+    
+    # Split by double newlines to get individual subtitle blocks
+    blocks = re.split(r'\n\s*\n', content)
+    
+    for block in blocks:
+        lines = block.strip().split('\n')
+        if len(lines) >= 3:
+            try:
+                index = int(lines[0])
+                time_line = lines[1]
+                text = '\n'.join(lines[2:])
+                
+                # Parse time line
+                time_match = re.match(r'(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})', time_line)
+                if time_match:
+                    start_time, end_time = time_match.groups()
+                    segments.append(SRTSegment(index, start_time, end_time, text))
+            except (ValueError, IndexError):
+                continue
+    
+    return segments
+
+def check_segment_for_keywords(segment: SRTSegment, keywords: List[str]) -> bool:
+    """Check if segment contains any keywords"""
+    if not segment or not segment.text or not keywords:
+        return False
+        
+    text_lower = segment.text.lower()
+    return any(keyword.lower().strip() in text_lower for keyword in keywords if keyword and keyword.strip())
+
+def format_srt_segment_html(segment: SRTSegment, keywords: List[str]) -> str:
+    """Format a single SRT segment as HTML"""
+    try:
+        highlighted_text, _ = highlight_keywords_in_text(segment.text, keywords)
+        
+        # Style the time stamp based on whether it contains keywords
+        time_style = "color: #d32f2f; font-weight: bold;" if segment.contains_keywords else "color: #666;"
+        
+        return f"""
+        <div style="margin: 15px 0; padding: 10px; border-left: 3px solid {'#d32f2f' if segment.contains_keywords else '#ccc'}; background-color: {'#fff3e0' if segment.contains_keywords else '#f9f9f9'};">
+            <div style="font-size: 12px; {time_style} margin-bottom: 5px;">
+                <strong>{segment.index}</strong> | {segment.start_time} → {segment.end_time}
+            </div>
+            <div style="font-size: 14px; line-height: 1.4;">
+                {highlighted_text}
+            </div>
+        </div>
+        """
+    except Exception as e:
+        # Si hay error formateando, devolver versión básica
+        return f"""
+        <div style="margin: 15px 0; padding: 10px; border-left: 3px solid #ccc; background-color: #f9f9f9;">
+            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                <strong>{segment.index}</strong> | {segment.start_time} → {segment.end_time}
+            </div>
+            <div style="font-size: 14px; line-height: 1.4;">
+                {segment.text}
+            </div>
+        </div>
+        """
+
+def display_enhanced_srt_for_file(srt_file_path: str, keywords: List[str], filename: str):
+    """Display SRT file with enhanced formatting and keyword highlighting"""
+    try:
+        if not srt_file_path or not os.path.exists(srt_file_path):
+            st.warning(f"Archivo SRT no encontrado para {filename}")
+            return
+        
+        segments = parse_srt_file(srt_file_path)
+        
+        if not segments:
+            st.warning(f"No se encontraron segmentos en el archivo SRT de {filename}")
+            return
+        
+        # Check which segments contain keywords
+        segments_with_keywords = []
+        segments_without_keywords = []
+        
+        for segment in segments:
+            try:
+                if check_segment_for_keywords(segment, keywords):
+                    segment.contains_keywords = True
+                    segments_with_keywords.append(segment)
+                else:
+                    segments_without_keywords.append(segment)
+            except Exception as e:
+                # Si hay error procesando un segmento, agregarlo sin keywords
+                segments_without_keywords.append(segment)
+        
+        # Display statistics
+        total_segments = len(segments)
+        keyword_segments = len(segments_with_keywords)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total de segmentos", total_segments)
+        with col2:
+            st.metric("Con palabras clave", keyword_segments)
+        with col3:
+            st.metric("Porcentaje", f"{(keyword_segments/total_segments*100):.1f}%" if total_segments > 0 else "0%")
+        
+        # Display options con key única por archivo
+        unique_key = f"display_filter_{filename}_{hash(srt_file_path)}"
+        display_option = st.radio(
+            "Mostrar:",
+            ["Solo segmentos con palabras clave", "Todos los segmentos", "Solo segmentos sin palabras clave"],
+            horizontal=True,
+            key=unique_key
+        )
+        
+        # Select segments to display
+        if display_option == "Solo segmentos con palabras clave":
+            segments_to_display = segments_with_keywords
+        elif display_option == "Solo segmentos sin palabras clave":
+            segments_to_display = segments_without_keywords
+        else:
+            segments_to_display = segments
+        
+        if not segments_to_display:
+            st.info("No hay segmentos para mostrar con la selección actual.")
+            return
+        
+        # Display segments
+        st.markdown("#### 📋 Transcripción con marcas de tiempo")
+        
+        # Limitar número de segmentos mostrados para evitar problemas de rendimiento
+        max_segments = 50
+        if len(segments_to_display) > max_segments:
+            st.warning(f"Mostrando los primeros {max_segments} segmentos de {len(segments_to_display)} total.")
+            segments_to_display = segments_to_display[:max_segments]
+        
+        # Display segments one by one para mejor manejo de errores
+        for segment in segments_to_display:
+            try:
+                html_content = format_srt_segment_html(segment, keywords)
+                st.markdown(html_content, unsafe_allow_html=True)
+            except Exception as e:
+                # Si hay error con un segmento específico, mostrar versión simple
+                st.write(f"**{segment.index}** | {segment.start_time} → {segment.end_time}")
+                st.write(segment.text)
+                st.write("---")
+                
+    except Exception as e:
+        st.error(f"Error procesando archivo SRT para {filename}: {e}")
+
+def highlight_keywords_in_text(text: str, keywords: List[str]) -> Tuple[str, List[str]]:
+    """Highlight keywords in text and return found terms"""
+    if not text or not keywords:
+        return text, []
+        
     highlighted_text = text
-    for term in search_terms:
-        highlighted_text = highlighted_text.replace(
-            term, f'<span style="color:red; text-decoration: underline;">{term}</span>'
-            )
-    return highlighted_text
+    found_terms = []
+    
+    for keyword in keywords:
+        if keyword and keyword.strip():  # Verificar que el keyword no esté vacío
+            # Create a case-insensitive pattern that preserves original case
+            try:
+                pattern = re.compile(re.escape(keyword.strip()), re.IGNORECASE)
+                if pattern.search(text):
+                    found_terms.append(keyword.strip())
+                    # Reemplazar de manera más segura
+                    highlighted_text = pattern.sub(
+                        lambda m: f'<mark style="background-color: #ffeb3b; color: #d32f2f; font-weight: bold;">{m.group()}</mark>',
+                        highlighted_text
+                    )
+            except re.error:
+                # Si hay error en regex, continuar con el siguiente keyword
+                continue
+    
+    return highlighted_text, found_terms
 
-# Interfaz principal (modificada para procesar el directorio persistente)
-if __name__ == "__main__":
-    st.title('Transcripción de Audio a Texto desde ZIP')
+def create_download_zip(results: List[TranscriptionResult], keywords: List[str]) -> bytes:
+    """Create ZIP file with all transcription results"""
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Agregar reporte resumen
+        report = create_summary_report(results, keywords)
+        zip_file.writestr("REPORTE_TRANSCRIPCION.md", report.encode('utf-8'))
+        
+        # Agregar archivos individuales
+        for result in results:
+            if result.transcription:
+                base_name = os.path.splitext(result.filename)[0]
+                
+                # Archivo TXT
+                zip_file.writestr(f"transcripciones/{base_name}.txt", result.transcription.encode('utf-8'))
+                
+                # Archivo SRT con marcas de tiempo
+                if result.srt_path and os.path.exists(result.srt_path):
+                    with open(result.srt_path, 'r', encoding='utf-8') as srt_file:
+                        srt_content = srt_file.read()
+                    zip_file.writestr(f"transcripciones_srt/{base_name}.srt", srt_content.encode('utf-8'))
+                
+                # Archivo con keywords resaltadas
+                highlighted = highlight_keywords(result.transcription, keywords)
+                zip_file.writestr(f"resaltados/{base_name}_resaltado.html", 
+                                f"<html><body><pre>{highlighted}</pre></body></html>".encode('utf-8'))
+    
+    zip_buffer.seek(0)
+    return zip_buffer.read()
 
-    audio_files, temp_dir = upload_and_extract_zip()
-
-    if audio_files is not None:
-        st.success(f"{len(audio_files)} archivos cargados y extraídos correctamente.")
+# Interfaz principal
+def main():
+    st.title('🎙️ Transcripción Masiva desde ZIP')
+    st.markdown("*Procesa múltiples archivos de audio desde un archivo ZIP*")
+    st.markdown("---")
+    
+    # Sidebar con información
+    with st.sidebar:
+        st.header("ℹ️ Información")
+        st.write("**Formatos soportados:**")
+        st.write("• WAV, MP3, WAVE")
+        st.write("• M4A, FLAC, AAC")
+        st.write("")
+        st.write("**Características:**")
+        st.write("• Procesamiento por lotes")
+        st.write("• Búsqueda de palabras clave")
+        st.write("• **Marcas de tiempo precisas**")
+        st.write("• **Filtrado inteligente SRT**")
+        st.write("• Reporte detallado")
+        st.write("• Descarga de resultados")
+        
+        if st.button("🗑️ Limpiar archivos temporales"):
+            cleanup_temp_directory()
+            st.session_state.processing_results = []
+            st.success("Archivos limpiados")
+    
+    # Upload ZIP file
+    zip_file = st.file_uploader(
+        '📁 Sube un archivo ZIP con audios',
+        type=['zip'],
+        help="El ZIP puede contener archivos en subdirectorios"
+    )
+    
+    if zip_file is not None:
+        with st.spinner("Analizando archivo ZIP..."):
+            audio_files, temp_dir = get_audio_files_from_zip(zip_file)
+            st.session_state.current_temp_dir = temp_dir
+        
+        if not audio_files:
+            st.error("❌ No se encontraron archivos de audio válidos en el ZIP")
+            return
+        
+        st.success(f"✅ {len(audio_files)} archivos de audio encontrados")
+        
+        # Mostrar lista de archivos encontrados
+        with st.expander("📋 Archivos encontrados", expanded=False):
+            for i, audio_file in enumerate(audio_files, 1):
+                filename = os.path.basename(audio_file)
+                file_size = os.path.getsize(audio_file) / (1024 * 1024)  # MB
+                is_valid = validate_audio_file(audio_file)
+                status = "✅" if is_valid else "❌"
+                st.write(f"{i}. {status} **{filename}** ({file_size:.2f} MB)")
+        
+        # Filtrar archivos válidos
+        valid_files = [f for f in audio_files if validate_audio_file(f)]
+        
+        if not valid_files:
+            st.error("❌ No hay archivos de audio válidos para procesar")
+            return
+        
+        # Configuración de procesamiento
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            keywords = opciones()
+            if keywords:
+                st.info(f"🔍 Buscando: **{', '.join(keywords)}**")
+        
+        with col2:
+            st.metric("Archivos válidos", len(valid_files))
+            st.metric("Archivos inválidos", len(audio_files) - len(valid_files))
+        
+        # Procesamiento
+        if st.button('🚀 Procesar todos los archivos', type="primary"):
+            if not keywords:
+                st.warning("⚠️ Agrega al menos una palabra clave para continuar")
+                return
             
-        opciones_elegidas = opciones()
-        st.write(f"Términos seleccionados: {', '.join(opciones_elegidas)}")
-            
-        if st.button('Ejecutar'):
             results = []
-            with st.spinner("Procesando audios..."):
-                for audio_path in audio_files:
-                    st.write(f"Procesando: {os.path.basename(audio_path)}")
-                    result = get_transcribe(audio_path)
-                    results.append(result)
-                        
-                    # Guardar transcripción individual
-                    save_file(result)
-                    save_file(result, 'txt')
-                    srt_path = save_file(result, 'srt')
-
-                    # Mostrar texto resaltado
-                    highlighted_text = search_and_highlight_text(result.get('text', ''), opciones_elegidas)
-                    st.markdown(f"<pre>{highlighted_text}</pre>", unsafe_allow_html=True)
-                        
-                st.success("Procesamiento completado.")
+            output_dir = tempfile.mkdtemp()
+            
+            # Progress bars
+            overall_progress = st.progress(0)
+            status_text = st.empty()
+            
+            # Contenedor para resultados
+            results_container = st.container()
+            
+            start_total = time.time()
+            
+            for i, audio_file in enumerate(valid_files):
+                filename = os.path.basename(audio_file)
+                
+                # Actualizar progreso
+                progress = (i + 1) / len(valid_files)
+                overall_progress.progress(progress)
+                status_text.text(f"Procesando {i+1}/{len(valid_files)}: {filename}")
+                
+                # Transcribir archivo
+                transcription_result = get_transcribe_safe(audio_file)
+                
+                if transcription_result.get("error"):
+                    st.error(f"❌ Error en {filename}: {transcription_result['error']}")
+                    continue
+                
+                # Procesar resultados
+                text = transcription_result.get("text", "")
+                found_keywords = find_keywords_in_text(text, keywords)
+                word_count = len(text.split()) if text else 0
+                
+                # Guardar archivos individuales
+                saved_files = save_individual_files(transcription_result, filename, output_dir)
+                
+                # Crear objeto resultado
+                result = TranscriptionResult(
+                    filename=filename,
+                    filepath=audio_file,
+                    transcription=text,
+                    duration=len(transcription_result.get("segments", [])) * 1.0,  # Aproximado
+                    processing_time=transcription_result.get("processing_time", 0),
+                    found_keywords=found_keywords,
+                    word_count=word_count,
+                    srt_path=saved_files.get('srt')
+                )
+                
+                results.append(result)
+                
+                # Mostrar resultado inmediato
+                with results_container:
+                    with st.expander(f"{'🎯' if found_keywords else '📄'} {filename}", expanded=bool(found_keywords)):
+                        if found_keywords:
+                            st.success(f"Palabras encontradas: **{', '.join(found_keywords)}**")
+                            highlighted_text = highlight_keywords(text, keywords)
+                            st.markdown(highlighted_text, unsafe_allow_html=True)
+                            
+                            # Agregar visualización con marcas de tiempo si hay archivo SRT
+                            if saved_files.get('srt'):
+                                with st.expander("⏱️ Ver con marcas de tiempo", expanded=False):
+                                    display_enhanced_srt_for_file(saved_files['srt'], keywords, filename)
+                        else:
+                            st.write("No se encontraron palabras clave")
+                            st.write(text[:300] + "..." if len(text) > 300 else text)
+                            
+                            # Agregar visualización básica con marcas de tiempo
+                            if saved_files.get('srt'):
+                                with st.expander("⏱️ Ver transcripción completa con marcas de tiempo", expanded=False):
+                                    display_enhanced_srt_for_file(saved_files['srt'], keywords, filename)
+            
+            # Finalizar procesamiento
+            total_time = time.time() - start_total
+            st.session_state.processing_results = results
+            
+            overall_progress.progress(1.0)
+            status_text.text(f"✅ Procesamiento completado en {total_time:.2f} segundos")
+            
+            # Mostrar resumen
+            st.markdown("---")
+            st.markdown("## 📊 Resumen del Procesamiento")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Archivos procesados", len(results))
+            with col2:
+                st.metric("Con palabras clave", len([r for r in results if r.found_keywords]))
+            with col3:
+                st.metric("Total palabras", sum(r.word_count for r in results))
+            with col4:
+                st.metric("Tiempo total", f"{total_time:.1f}s")
+            
+            # Botón de descarga
+            if results:
+                zip_data = create_download_zip(results, keywords)
+                st.download_button(
+                    label="📥 Descargar todos los resultados (ZIP)",
+                    data=zip_data,
+                    file_name=f"transcripciones_{int(time.time())}.zip",
+                    mime="application/zip"
+                )
+    
     else:
-        st.warning('Sube un archivo ZIP con audios para comenzar.')
+        st.info('📁 Sube un archivo ZIP con audios para comenzar')
+        
+        # Instrucciones
+        with st.expander("📖 Instrucciones de uso"):
+            st.markdown("""
+            ### 🚀 Cómo usar esta herramienta:
+            
+            1. **Prepara tu ZIP**: Coloca todos los archivos de audio en un ZIP
+            2. **Sube el archivo**: Usa el botón de arriba para subir tu ZIP
+            3. **Configura palabras clave**: Selecciona los términos que quieres encontrar
+            4. **Procesa**: Inicia el procesamiento masivo
+            5. **Descarga**: Obtén todos los resultados en un ZIP organizado
+            
+            ### 📝 Formatos soportados:
+            - **Audio**: WAV, MP3, WAVE, M4A, FLAC, AAC
+            - **Estructura**: El ZIP puede tener subdirectorios
+            
+            ### 📊 Resultados incluyen:
+            - Transcripciones completas en TXT
+            - **Archivos SRT con marcas de tiempo precisas**
+            - **Visualización interactiva** con filtrado de segmentos
+            - Archivos con palabras clave resaltadas
+            - Reporte detallado con estadísticas
+            - Análisis por archivo individual
+            
+            ### ⏱️ Funcionalidades de marcas de tiempo:
+            - **Navegación por segmentos** temporales
+            - **Filtrado inteligente** (solo con keywords, todos, sin keywords)
+            - **Estadísticas por archivo** (segmentos totales vs. relevantes)
+            - **Resaltado visual** de segmentos importantes
+            - **Descarga de archivos SRT** para usar en editores de video
+            """)
+
+if __name__ == "__main__":
+    main()
