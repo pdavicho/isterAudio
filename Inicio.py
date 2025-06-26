@@ -102,9 +102,9 @@ if __name__ == "__main__":
     # Header principal simplificado
     st.markdown("""
     <div class="main-header">
-        <h1>🎙️ Speech To Text</h1>
-        <h2>Instituto Universitario Rumiñahui</h2>
-        <p style="font-size: 1.2rem; margin-top: 1rem; opacity: 0.9;">
+        <h1><span style="color: white;">Instituto Universitario Rumiñahui</h1>
+        <h2><span style="color: white;">🎙️ Speech To Text</h2>
+        <p style="font-size: 1.2rem; margin-top: 1rem; opacity: 0.9; color: white;">
             | Departamento de Investigación | 
         </p>
     </div>
@@ -131,18 +131,18 @@ if __name__ == "__main__":
     with col2:
         st.markdown("""
         <div class="stats-container">
-        <h3>📊 Estadísticas del Sistema</h3>
+        <h3><span style="color: white;">📊 Estadísticas del Sistema</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0;">
             <div>
-                <h2 style="margin: 0; font-size: 2.5rem;">3</h2>
+                <h2 style="margin: 0; font-size: 2.5rem;color: white;">3</h2>
                 <p style="margin: 0;">Herramientas</p>
             </div>
             <div>
-                <h2 style="margin: 0; font-size: 2.5rem;">AI</h2>
+                <h2 style="margin: 0; font-size: 2.5rem;color: white;">AI</h2>
                 <p style="margin: 0;">Powered by Whisper</p>
             </div>
             <div style="grid-column: 1 / -1;">
-                <h2 style="margin: 0; font-size: 2.5rem;">24/7</h2>
+                <h2 style="margin: 0; font-size: 2.5rem;color: white;">24/7</h2>
                 <p style="margin: 0;">Disponibilidad</p>
             </div>
         </div>
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     # Footer institucional
     st.markdown(f"""
     <div class="footer-info">
-        <h2><span style="color: white;">🏛️ Instituto Universitario Rumiñahui</span></h2>
+        <h1><span style="color: white;">🏛️ Instituto Universitario Rumiñahui</span></h1>
         <p><strong>Departamento de Investigación</strong> | Innovación y Desarrollo Tecnológico</p>
         <p>Comprometidos con la excelencia académica y el avance científico</p>
         <p style="opacity: 0.8; font-size: 0.9rem; margin-top: 1.5rem;">
