@@ -13,7 +13,7 @@ st.markdown("""
 <style>
     .main-header {
         text-align: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #4472C4 0%, #3B5998 100%);  ← NUEVA LÍNEA
         color: white;
         padding: 3rem 2rem;
         border-radius: 15px;
@@ -175,7 +175,6 @@ if __name__ == "__main__":
                     <li>Búsqueda de palabras clave</li>
                     <li>Marcas de tiempo precisas</li>
                     <li>Filtrado inteligente</li>
-                    
                 </ul>
             </div>
         </div>
