@@ -107,7 +107,7 @@ def create_tool_card(title, description, icon, page_link, features):
         st.markdown("---")
 
 if __name__ == "__main__":
-    # Header principal con logos
+    # Header principal con logo único
     st.markdown("""
     <div class="main-header">
         <h1>🎙️ Herramientas de Inteligencia Artificial para Audio</h1>
@@ -115,50 +115,30 @@ if __name__ == "__main__":
     </div>
     """, unsafe_allow_html=True)
     
-    # Sección de logos usando columnas de Streamlit
-    st.markdown('<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1rem; border-radius: 10px; margin-bottom: 2rem;">', unsafe_allow_html=True)
+    # Sección de logo centrado usando columnas de Streamlit
+    st.markdown('<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; margin-bottom: 2rem;">', unsafe_allow_html=True)
     
-    col_logo1, col_text1, col_logo2, col_text2 = st.columns([1, 2, 1, 2])
+    # Logo centrado
+    col1, col2, col3 = st.columns([1, 1, 1])
     
-    with col_logo1:
+    with col2:  # Columna central
         try:
-            st.image("logoRU.png", width=120)
+            st.image("logoRU.png", width=150)
         except FileNotFoundError:
             st.markdown("""
-            <div style="width: 120px; height: 120px; background: rgba(255,255,255,0.9); 
-                        border-radius: 10px; display: flex; align-items: center; 
-                        justify-content: center; font-size: 48px; color: #667eea; 
-                        border: 2px solid rgba(255,255,255,0.3); margin: 0 auto;">
+            <div style="width: 150px; height: 150px; background: rgba(255,255,255,0.9); 
+                        border-radius: 15px; display: flex; align-items: center; 
+                        justify-content: center; font-size: 60px; color: #667eea; 
+                        border: 3px solid rgba(255,255,255,0.3); margin: 0 auto;">
                 🏛️
             </div>
             """, unsafe_allow_html=True)
-    
-    with col_text1:
+        
         st.markdown("""
         <div style="text-align: center; color: white; padding: 1rem;">
-            <h4 style="margin: 0; color: white;">Instituto Universitario<br>Rumiñahui</h4>
-            <p style="margin: 0.5rem 0 0 0; opacity: 0.8;">Excelencia Académica e Innovación</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col_logo2:
-        try:
-            st.image("dInvestigacion.png", width=120)
-        except FileNotFoundError:
-            st.markdown("""
-            <div style="width: 120px; height: 120px; background: rgba(255,255,255,0.9); 
-                        border-radius: 10px; display: flex; align-items: center; 
-                        justify-content: center; font-size: 48px; color: #667eea; 
-                        border: 2px solid rgba(255,255,255,0.3); margin: 0 auto;">
-                🔬
-            </div>
-            """, unsafe_allow_html=True)
-    
-    with col_text2:
-        st.markdown("""
-        <div style="text-align: center; color: white; padding: 1rem;">
-            <h4 style="margin: 0; color: white;">Departamento de<br>Investigación</h4>
-            <p style="margin: 0.5rem 0 0 0; opacity: 0.8;">Ciencia y Tecnología</p>
+            <h2 style="margin: 0.5rem 0; color: white;">Instituto Universitario Rumiñahui</h2>
+            <h4 style="margin: 0.5rem 0; color: white; opacity: 0.9;">Departamento de Investigación</h4>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.8;">Excelencia Académica e Innovación Tecnológica</p>
         </div>
         """, unsafe_allow_html=True)
     
