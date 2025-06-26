@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass
 from typing import List, Set, Tuple
 
-st.set_page_config(page_title='Speech To Text', page_icon=':studio_microphone:')
+st.set_page_config(page_title='Speech To Text', page_icon=':studio_microphone:', layout="wide")
 
 # Inicializar session state
 if 'transcription_complete' not in st.session_state:
