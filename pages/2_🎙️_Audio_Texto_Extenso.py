@@ -588,21 +588,33 @@ def main():
                     with st.expander(f"{'🎯' if found_keywords else '📄'} {filename}", expanded=bool(found_keywords)):
                         if found_keywords:
                             st.success(f"Palabras encontradas: **{', '.join(found_keywords)}**")
-                            highlighted_text = highlight_keywords(text, keywords)
-                            st.markdown(highlighted_text, unsafe_allow_html=True)
                             
-                            # Agregar visualización con marcas de tiempo si hay archivo SRT
-                            if saved_files.get('srt'):
-                                with st.expander("⏱️ Ver con marcas de tiempo", expanded=False):
+                            # Usar tabs en lugar de expanders anidados
+                            tab1, tab2 = st.tabs(["📝 Texto resaltado", "⏱️ Marcas de tiempo"])
+                            
+                            with tab1:
+                                highlighted_text = highlight_keywords(text, keywords)
+                                st.markdown(highlighted_text, unsafe_allow_html=True)
+                            
+                            with tab2:
+                                if saved_files.get('srt'):
                                     display_enhanced_srt_for_file(saved_files['srt'], keywords, filename)
+                                else:
+                                    st.info("No hay archivo SRT disponible")
                         else:
                             st.write("No se encontraron palabras clave")
-                            st.write(text[:300] + "..." if len(text) > 300 else text)
                             
-                            # Agregar visualización básica con marcas de tiempo
-                            if saved_files.get('srt'):
-                                with st.expander("⏱️ Ver transcripción completa con marcas de tiempo", expanded=False):
+                            # Usar tabs también para archivos sin keywords
+                            tab1, tab2 = st.tabs(["📝 Texto completo", "⏱️ Marcas de tiempo"])
+                            
+                            with tab1:
+                                st.write(text[:300] + "..." if len(text) > 300 else text)
+                            
+                            with tab2:
+                                if saved_files.get('srt'):
                                     display_enhanced_srt_for_file(saved_files['srt'], keywords, filename)
+                                else:
+                                    st.info("No hay archivo SRT disponible")
             
             # Finalizar procesamiento
             total_time = time.time() - start_total
