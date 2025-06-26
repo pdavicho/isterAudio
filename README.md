@@ -3,6 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28%2B-red.svg)](https://streamlit.io)
 [![OpenAI Whisper](https://img.shields.io/badge/OpenAI-Whisper-green.svg)](https://github.com/openai/whisper)
+[![Deploy](https://img.shields.io/badge/Deploy-Streamlit%20Cloud-FF4B4B.svg)](https://isteraudio.streamlit.app/)
 
 
 ## 🏛️ **Instituto Universitario Rumiñahui**  
@@ -48,6 +49,12 @@ Divide archivos de audio largos en segmentos optimizados.
 - Control de calidad y formato de salida
 - Numeración automática ordenada
 - Metadata completa incluida
+
+## 🌐 Acceso Directo
+
+**🚀 [Usar la aplicación en línea](https://isteraudio.streamlit.app/)**
+
+*No requiere instalación - Acceso inmediato desde cualquier navegador*
 
 ## 🚀 Instalación
 
