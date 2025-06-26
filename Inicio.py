@@ -123,7 +123,7 @@ if __name__ == "__main__":
     
     with col2:  # Columna central
         try:
-            st.image("logoRU.png", width=150)
+            st.image("universitarioRU.png", width=150)
         except FileNotFoundError:
             st.markdown("""
             <div style="width: 150px; height: 150px; background: rgba(255,255,255,0.9); 
