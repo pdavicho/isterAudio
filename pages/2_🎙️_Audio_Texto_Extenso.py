@@ -52,6 +52,43 @@ def load_whisper_model():
 
 model = load_whisper_model()
 
+def natural_sort_key(filename: str) -> tuple:
+    """
+    Genera una clave de ordenamiento natural para archivos con números
+    Ejemplos:
+    - audio_seg_1.mp3 -> (audio_seg_, 1, .mp3)
+    - audio_seg_10.mp3 -> (audio_seg_, 10, .mp3)
+    - segment_01.wav -> (segment_, 1, .wav)
+    """
+    import re
+    
+    # Dividir el nombre en partes texto-número-texto
+    parts = re.split(r'(\d+)', filename.lower())
+    
+    # Convertir números a enteros para ordenamiento correcto
+    result = []
+    for part in parts:
+        if part.isdigit():
+            result.append(int(part))
+        else:
+            result.append(part)
+    
+    return tuple(result)
+
+def sort_audio_files(audio_files: List[str]) -> List[str]:
+    """
+    Ordena archivos de audio de manera inteligente
+    Prioriza ordenamiento numérico sobre alfabético
+    """
+    # Obtener solo los nombres de archivo para ordenar
+    files_with_names = [(os.path.basename(f), f) for f in audio_files]
+    
+    # Ordenar usando la clave natural
+    sorted_files = sorted(files_with_names, key=lambda x: natural_sort_key(x[0]))
+    
+    # Devolver solo las rutas completas
+    return [full_path for _, full_path in sorted_files]
+
 def get_audio_files_from_zip(zip_file) -> Tuple[List[str], str]:
     """Extract and validate audio files from ZIP"""
     try:
@@ -76,6 +113,9 @@ def get_audio_files_from_zip(zip_file) -> Tuple[List[str], str]:
                 if file.lower().endswith(audio_extensions):
                     full_path = os.path.join(root, file)
                     audio_files.append(full_path)
+        
+        # Ordenar archivos de manera inteligente
+        audio_files = sort_audio_files(audio_files)
         
         return audio_files, temp_dir
         
@@ -471,11 +511,16 @@ def main():
         st.write("")
         st.write("**Características:**")
         st.write("• Procesamiento por lotes")
+        st.write("• **Ordenamiento automático**")
         st.write("• Búsqueda de palabras clave")
         st.write("• **Marcas de tiempo precisas**")
         st.write("• **Filtrado inteligente SRT**")
         st.write("• Reporte detallado")
         st.write("• Descarga de resultados")
+        st.write("")
+        st.write("**🔢 Orden de procesamiento:**")
+        st.write("Los archivos se procesan automáticamente en orden numérico:")
+        st.code("audio_seg_1 → audio_seg_2 → audio_seg_10")
         
         if st.button("🗑️ Limpiar archivos temporales"):
             cleanup_temp_directory()
@@ -498,18 +543,18 @@ def main():
             st.error("❌ No se encontraron archivos de audio válidos en el ZIP")
             return
         
-        st.success(f"✅ {len(audio_files)} archivos de audio encontrados")
+        st.success(f"✅ {len(audio_files)} archivos de audio encontrados y ordenados automáticamente")
         
-        # Mostrar lista de archivos encontrados
-        with st.expander("📋 Archivos encontrados", expanded=False):
+        # Mostrar lista de archivos encontrados (ahora ordenados)
+        with st.expander("📋 Archivos encontrados (en orden de procesamiento)", expanded=False):
             for i, audio_file in enumerate(audio_files, 1):
                 filename = os.path.basename(audio_file)
                 file_size = os.path.getsize(audio_file) / (1024 * 1024)  # MB
                 is_valid = validate_audio_file(audio_file)
                 status = "✅" if is_valid else "❌"
-                st.write(f"{i}. {status} **{filename}** ({file_size:.2f} MB)")
+                st.write(f"**{i}.** {status} **{filename}** ({file_size:.2f} MB)")
         
-        # Filtrar archivos válidos
+        # Filtrar archivos válidos manteniendo el orden
         valid_files = [f for f in audio_files if validate_audio_file(f)]
         
         if not valid_files:
@@ -552,13 +597,13 @@ def main():
                 # Actualizar progreso
                 progress = (i + 1) / len(valid_files)
                 overall_progress.progress(progress)
-                status_text.text(f"Procesando {i+1}/{len(valid_files)}: {filename}")
+                status_text.text(f"🎵 Procesando archivo {i+1}/{len(valid_files)}: {filename}")
                 
                 # Transcribir archivo
                 transcription_result = get_transcribe_safe(audio_file)
                 
                 if transcription_result.get("error"):
-                    st.error(f"❌ Error en {filename}: {transcription_result['error']}")
+                    st.error(f"❌ Error en archivo {i+1} ({filename}): {transcription_result['error']}")
                     continue
                 
                 # Procesar resultados
@@ -658,12 +703,19 @@ def main():
             1. **Prepara tu ZIP**: Coloca todos los archivos de audio en un ZIP
             2. **Sube el archivo**: Usa el botón de arriba para subir tu ZIP
             3. **Configura palabras clave**: Selecciona los términos que quieres encontrar
-            4. **Procesa**: Inicia el procesamiento masivo
+            4. **Procesa**: Inicia el procesamiento masivo (**se procesarán en orden numérico**)
             5. **Descarga**: Obtén todos los resultados en un ZIP organizado
             
             ### 📝 Formatos soportados:
             - **Audio**: WAV, MP3, WAVE, M4A, FLAC, AAC
             - **Estructura**: El ZIP puede tener subdirectorios
+            
+            ### 🔢 Ordenamiento inteligente:
+            Los archivos se procesan en orden numérico automáticamente:
+            - ✅ `audio_seg_1.mp3` → `audio_seg_2.mp3` → `audio_seg_10.mp3`
+            - ✅ `segment_01.wav` → `segment_02.wav` → `segment_03.wav`
+            - ✅ `parte1.mp3` → `parte2.mp3` → `parte11.mp3`
+            - ✅ También funciona con: `audio1`, `seg_001`, `recording_5`, etc.
             
             ### 📊 Resultados incluyen:
             - Transcripciones completas en TXT
